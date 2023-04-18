@@ -3,7 +3,7 @@ module SMFTools
 using BioAlignments, BioSequences, XAM, GenomicFeatures, GenomeFragments
 using ProgressMeter
 
-export streambam, validfrag, streamfrags, posmlp
+export streambam_smf, validfrag, streamfrags, posmlp
 
 include("stream.jl")
 
