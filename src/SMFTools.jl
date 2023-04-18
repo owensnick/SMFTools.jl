@@ -1,6 +1,6 @@
 module SMFTools
 
-using BioSequences, XAM, GenomeFragments
+using BioAlignments, BioSequences, XAM, GenomicFeatures, GenomeFragments
 
 export streambam, validfrag, streamfrags, posmlp
 
