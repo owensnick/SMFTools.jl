@@ -1,6 +1,6 @@
 
 
-function streambam(bamfile, outfile; T=Int32, verbose=true)
+function streambam_smf(bamfile, outfile; T=Int32, verbose=true)
     verbose && println("[SMF]\tStreaming BAM file: $bamfile to $outfile")
 
     starttime = time()
@@ -68,7 +68,7 @@ end
 function validfrag(record)
     f = BAM.flag(record)
     
-    if BAM.ismapped(record) && haskey(record, "Ml") && ((f == 0) || (f == 16))
+    if BAM.ismapped(record) && !iszero(BAM.refid(record)) && haskey(record, "Ml") && ((f == 0) || (f == 16))
         return true
     else
         return false
@@ -125,6 +125,13 @@ function streamfrags(bamreader, io; T=Int32, filtfun=validfrag, mlt = 0.0)
         !isnothing(p) && next!(p)
         !filtfun(record) && continue
         
+        try
+            chrom = BAM.refname(record)
+        catch err
+            display(record)
+            display(BAM.ismapped(record))
+            rethrow(err)
+        end
         chrom = BAM.refname(record)
         fragstart = BAM.leftposition(record)
         fragstop = BAM.rightposition(record)
