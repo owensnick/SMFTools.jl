@@ -1,6 +1,6 @@
 
 
-function streambam(bamfile, outfile; T=Int32, verbose=false)
+function streambam(bamfile, outfile; T=Int32, verbose=true)
     verbose && println("[SMF]\tStreaming BAM file: $bamfile to $outfile")
 
     starttime = time()
@@ -95,8 +95,8 @@ function streamfrags(bamreader, io; T=Int32, filtfun=validfrag, mlt = 0.0)
     for record in Iterators.filter(filtfun, bamreader)
         
         chrom = BAM.refname(record)
-        fragstart = leftposition(record)
-        fragstop = rightposition(record)
+        fragstart = BAM.leftposition(record)
+        fragstop = BAM.rightposition(record)
         fragstrand = GenomeFragments.getstrand(record)
         chromind = chromindex[chrom]
         
