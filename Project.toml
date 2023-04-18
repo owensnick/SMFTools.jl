@@ -3,6 +3,11 @@ uuid = "e402be18-941d-4f88-839a-31d73d6b0658"
 authors = ["Nick Owens <owensnick@gmail.com> and contributors"]
 version = "1.0.0-DEV"
 
+[deps]
+BioSequences = "7e6ae17a-c86d-528c-b3b9-7f778a29fe59"
+GenomeFragments = "4457e3f0-28e6-4a0e-b59c-01e4587e0deb"
+XAM = "d759349c-bcba-11e9-07c2-5b90f8f05f7c"
+
 [compat]
 julia = "1"
 
