@@ -12,7 +12,14 @@ function streambam(bamfile, outfile; T=Int32, verbose=true)
     write(io, pos_buff)
     
 
-    reader = open(BAM.Reader, bamfile)
+    if isfile(string(bamfile, ".bai"))
+        reader = open(BAM.Reader, bamfile, index=string(bamfile, ".bai"))
+        totalreads = totalreadsindex(reader)
+        verbose && println("[SMF]\tTotal reads in BAM file: ", totalreads)
+    else
+        reader = open(BAM.Reader, bamfile)
+        totalreads = -1
+    end
     chroms, totalreads, totalpos = streamfrags(reader, io, T=T)
     verbose && println("[SMF]\tStreamed ", sum(totalreads), " fragments from ", length(chroms), " chromosomes")
     
@@ -61,12 +68,26 @@ end
 function validfrag(record)
     f = BAM.flag(record)
     
-    if haskey(record, "Ml") && ((f == 0) || (f == 16))
+    if BAM.ismapped(record) && haskey(record, "Ml") && ((f == 0) || (f == 16))
         return true
     else
         return false
     end
     
+end
+
+"""
+    totalreadsindex(reader)
+
+    Function to get the total number of reads in a BAM file reader `reader` using the index
+"""
+function totalreadsindex(reader)
+    if isnothing(reader.index)
+        return -1
+    else
+        return mapreduce(d -> d[end].n_mapped, +, reader.index.index.data) + reader.index.n_no_coors
+    end
+
 end
 
 """
@@ -92,7 +113,17 @@ function streamfrags(bamreader, io; T=Int32, filtfun=validfrag, mlt = 0.0)
     
     index = 0
     readid = 1
-    for record in Iterators.filter(filtfun, bamreader)
+
+    total_reads_in_file = totalreadsindex(bamreader)
+    if total_reads_in_file != -1
+        p = Progress(total_reads_in_file, 1, "Streaming BAM file: ", 50)
+    else
+        p = nothing
+    end
+
+    for record in bamreader
+        !isnothing(p) && next!(p)
+        !filtfun(record) && continue
         
         chrom = BAM.refname(record)
         fragstart = BAM.leftposition(record)
