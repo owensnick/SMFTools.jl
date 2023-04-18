@@ -1,5 +1,7 @@
 module SMFTools
 
-# Write your package code here.
+using BioSequences, XAM, GenomeFragments
+
+
 
 end
