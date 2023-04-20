@@ -33,10 +33,12 @@ function bamrecord_meth_stats(record, genomereader, mtA=0, mtC=0)
     gcind = ifelse(BAM.ispositivestrand(record), seq .== DNA_C, seq .== DNA_G)
 
 
+    mmA[atind] .= ml[1:sum(atind)]
+    mmC[gcind] .= ml[sum(atind) .+ (1:sum(gcind))]
+    
     valid_mmA = ifelse.(seq_match, mmA, -1)
     valid_mmC = ifelse.(seq_match, mmC, -1)
     
-
     ### methylation run length stats, run lengths identify consequetive methylated basepairs
     meth_symb_A, run_A = rle(filter(m -> m != -1, valid_mmA) .> mtA)
     meth_symb_C, run_C = rle(filter(m -> m != -1, valid_mmC) .> mtC)
@@ -46,9 +48,9 @@ function bamrecord_meth_stats(record, genomereader, mtA=0, mtC=0)
  
     
     total_A = sum(mmA .!= -1)
-    total_C = sum(mmC .!= mmC)
+    total_C = sum(mmC .!= -1)
     valid_A = sum(valid_mmA .!= -1)
-    valid_C = sum(valid_mmC .!= mmC)
+    valid_C = sum(valid_mmC .!= -1)
     
     total_mA = sum(mmA .> mtA)
     total_mC = sum(mmC .> mtC)
@@ -147,12 +149,3 @@ function bam_meth_stats(bamfile, genomefile, outfile=nothing)
 
     df
 end
-
-
-bamfile = "/Users/ndlo201/projects/smf/hek293_m6a.sort.bam"
-genomefile = "/Users/ndlo201/resource/human/hg19/hg19.fa"
-outfile = "/Users/ndlo201/projects/smf/hek293_m6a.sort.meth_stats.tsv.gz"
-
-df = bam_meth_stats(bamfile, genomefile, outfile)
-
-DataFrame
