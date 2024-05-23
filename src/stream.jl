@@ -216,7 +216,7 @@ function streamfrags(bamreader, io; T=Int32, filtfun=validfrag, mlt = 0.0)
 end
 
 
-function streambam_smf_pos(bamfile, outfile, modifiction="";  T=Int32, verbose=true, mlt=0, compress=0)
+function streambam_smf_pos(bamfile, outfile, modifiction="";  T=Int32, verbose=true, mlt=0, compress=1)
     verbose && println("[SMF]\tStreaming BAM file: $bamfile to $outfile")
 
     starttime = time()
