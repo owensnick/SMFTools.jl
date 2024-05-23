@@ -6,7 +6,7 @@ Tools for working with Nanopore alignments with methylation calls, particularly 
 Convert BAM file to a binary file suitable for memory mapping
 
 ```julia
-    streambam("in.bam", "out.bin")
+    streambam_smf_pos("in.bam", "out.bin")
 ```
 
 Calculate methylation summary statistics from `meth.bam` aligned to `genome.fa` and save in `meth_stats.tsv.gz`:
