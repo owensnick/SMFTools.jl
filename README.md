@@ -3,10 +3,15 @@
 Tools for working with Nanopore alignments with methylation calls, particularly for single molecule footprinting with 6mA. For use with https://github.com/owensnick/GenomeFragments.jl.
 
 
-Convert BAM file to a binary file suitable for memory mapping
+Convert BAM file to a binary file suitable for memory mapping:
 
 ```julia
-    streambam_smf_pos("in.bam", "out.bin")
+    streambam_smf_pos("in.bam", "out.posbin")
+```
+
+Load memory mapped methylation file:
+```julia
+    PM = load_pos_matrix("out.posbin")
 ```
 
 Calculate methylation summary statistics from `meth.bam` aligned to `genome.fa` and save in `meth_stats.tsv.gz`:
