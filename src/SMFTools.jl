@@ -9,7 +9,7 @@ using Parsers
 
 using Blosc
 
-export streambam_smf, validfrag, streamfrags, posmlp, bam_meth_stats, load_pos_matrix, getreadindex, getposview, modmeta, modheat
+export streambam_smf, validfrag, streamfrags, posmlp, bam_meth_stats, load_pos_matrix, getreadindex, getposview, modmeta, modheat, streambam_smf_pos
 
 include("stream.jl")
 include("readstats.jl")
