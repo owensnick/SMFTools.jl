@@ -256,3 +256,59 @@ function modheat(ic::IntervalCollection{T}, PM; mlt=-1, fn=identity, spos=true, 
 
     H, B
 end
+
+
+
+function modheat(ic::IntervalCollection{T}, PM::PosMatrixCompressed, modification=first(keys(PM.modifications)); mlt=-1, norm=:none, fn=identity, spos=true, sneg=true) where {T}
+
+    n = GenomicFeatures.span(first(ic))
+    pile = zeros(n, length(ic))
+    # bgpile = zeros(n)
+
+    data = Int32[] ### need to make this a type parameter in PM
+    mi = PM.modifications[modification]
+    off = (mi - 1)*2
+    rind = off .+ 3 .+ (1:2)
+
+    totalspan = 0
+
+    for (ii, ri) in eachoverlap(ic, PM.readivs)
+
+
+        rii = GenomicFeatures.metadata(ri)
+        iii = GenomicFeatures.metadata(ii)
+        totalspan += length(intersect(leftposition(ii):rightposition(ii), PM.readindex[2, rii]:PM.readindex[3, rii]))
+        pind = PM.readindex[rind[1], rii]:PM.readindex[rind[2], rii]
+
+        # pind = GenomicFeatures.metadata(ri)
+        !spos && (strand(ri) == STRAND_POS) && continue
+        !sneg && (strand(ri) == STRAND_NEG) && continue
+
+        decompress!(data, PM.PM[pind])
+
+        for pi = 1:PM.modfields:length(data)
+
+            pos = data[pi]
+            ml = data[pi + 1] #### dirty
+                
+            if strand(ii) == STRAND_POS
+                wpos = pos - leftposition(ii) .+ 1
+            else
+                wpos = rightposition(ii) - pos + 1
+            end
+
+            if (1 <= wpos <= n) && (ml > mlt)
+                pile[wpos, iii] += fn(ml)
+                # bgpile[wpos] += 1
+            end
+        end
+    end
+
+    if norm == :totalspan
+        pile ./= totalspan
+    end
+
+    # pile, bgpile
+
+    pile, totalspan
+end
