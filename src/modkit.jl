@@ -456,3 +456,9 @@ function streamblockreadsconfig(file, config::ModConfig{N}=config_ami(); seqsumf
     end
     n, seqsum_mdf
 end
+
+
+methprob_to_int(p, offset=0.5) = Int(round(256.0.*p .+ offset))
+methprob_to_uint8(p) = UInt8(methprob_to_int(p) - 1)
+
+uint8_to_methprob(u) = (u + 1 - 0.5)/256
