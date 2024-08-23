@@ -233,7 +233,7 @@ struct ModOnlineStat{T, V}
 end
 
 struct ModQualityHist end
-mapqualhist() = ModOnlineStat(ModQualityHist(), "ModQuality", m -> methprob_to_uint8(m.mod_qual), CountMap(UInt8))
+modqualhist() = ModOnlineStat(ModQualityHist(), "ModQuality", m -> methprob_to_uint8(m.mod_qual), CountMap(UInt8))
 function statdf(stat::ModOnlineStat{ModQualityHist, V}, modcode) where V
     mod_quals = sort(collect(keys(stat.os.value)))
     counts = getindex.(Ref(stat.os.value), mod_quals)
@@ -286,7 +286,7 @@ end
 # struct ModIntervalHist end
 # intervalhist() = BamMethStat(ModIntervalHist(), "Interval Hist", identity, KHist(100))
 
-mod_online_stats() = [mapqualhist(), basequalhist(), tempalignjointhist(), querykmerqualityhist(), refkmerqualityhist(), kmermistmatchhist()]
+mod_online_stats() = [modqualhist(), basequalhist(), tempalignjointhist(), querykmerqualityhist(), refkmerqualityhist(), kmermistmatchhist()]
 
 
 ### read level stats
