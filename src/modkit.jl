@@ -336,6 +336,21 @@ function joinmodstat(seqsum, mdf)
     end
 end
 
+function writemodstats_config(file, config::ModConfig{N}, readmodstats) where {N}
+
+    path = joinpath(dirname(file), "modstats")
+    mkpath(path)
+
+    for i = 1:N
+        for ms in readmodstats[i]
+            file = joinpath(path, string("modstat_", config.mods[i], "_", ms.name, ".tsv.gz"))
+            df = statdf(ms, config.mods[i])
+            println("Writing $file")
+            CSV.write(file, df, delim='\t', compress=true)
+        end
+    end
+    
+end
 
 #######################################################
 ## main loop
