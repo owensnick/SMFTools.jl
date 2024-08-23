@@ -250,7 +250,7 @@ end
 
 
 struct ModBaseQualityHist end
-tempalignjointhist() = ModOnlineStat(ModBaseQualityHist(), "ModBaseQual", m -> (methprob_to_uint8(m.mod_qual), m.base_qual), HeatMap(0:255, 0:50))
+modbasejointhist() = ModOnlineStat(ModBaseQualityHist(), "ModBaseQual", m -> (methprob_to_uint8(m.mod_qual), m.base_qual), HeatMap(0:255, 0:50))
 function statdf(stat::ModOnlineStat{ModBaseQualityHist, V}, modcode) where V
     DataFrame(ModCode=modcode, Name=stat.name, BaseQual=repeat(stat.os.yedges[1:end-1], inner=length(stat.os.xedges)-1), ModQualInt=repeat(stat.os.xedges[1:end-1], length(stat.os.yedges)-1), Count=stat.os.counts[:])
 end
@@ -286,7 +286,7 @@ end
 # struct ModIntervalHist end
 # intervalhist() = BamMethStat(ModIntervalHist(), "Interval Hist", identity, KHist(100))
 
-mod_online_stats() = [modqualhist(), basequalhist(), tempalignjointhist(), querykmerqualityhist(), refkmerqualityhist(), kmermistmatchhist()]
+mod_online_stats() = [modqualhist(), basequalhist(), modbasejointhist(), querykmerqualityhist(), refkmerqualityhist(), kmermistmatchhist()]
 
 
 ### read level stats
