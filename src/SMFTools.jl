@@ -17,4 +17,5 @@ include("stream.jl")
 include("readstats.jl")
 include("posmatrix.jl")
 include("processing.jl")
+include("modkit.jl")
 end
