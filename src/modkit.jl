@@ -88,7 +88,7 @@ function parse_mod_line(line)
         elseif i == 14   #"ref_kmer"
             ## always .
             if f != "."
-                ref_kmer = String7(f)
+                ref_kmer = String7(uppercase(f))
             end
         elseif i == 15   #"query_kmer"
             query_kmer = String7(f)
