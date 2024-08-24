@@ -210,7 +210,6 @@ config_ami() = ModConfig(("a", "m", "i"), modcode_index_ami, validmod_ami)
 ## stats funs
 ### mismatchcode("AAAAA", "TAATT") |> x -> digits(x, base=2, pad=5) = [1 0 0 1 1]
 function mismatchcode(kmerA, kmerB)
-    collect(kmerA) .== collect(kmerB)
     s = 0
     v = 1
     for (i, (a, b)) in enumerate(zip(kmerA, kmerB))
