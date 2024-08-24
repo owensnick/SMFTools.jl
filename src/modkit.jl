@@ -328,11 +328,11 @@ end
 function joinmodstat(seqsum, mdf)
 
     if size(seqsum, 1) == size(mdf, 1)
-        [seqsum mdf]
+        [seqsum[!, Not(names(mdf))] mdf]
     else
         seqsum.Index = 1:size(seqsum, 1)
         mdf.Index = 1:size(mdf, 1)
-        leftjoin(seqsum, mdf, on=:Index)
+        leftjoin(seqsum[!, Not(names(mdf))], mdf, on=:Index)
     end
 end
 
@@ -413,6 +413,8 @@ function streamblockreadsconfig(file, config::ModConfig{N}=config_ami(); seqsumf
     ### annotate seqsum with soft clipping details
     seqsum.fw_soft_clipped_start = zeros(Int, totalreads)
     seqsum.fw_soft_clipped_end = zeros(Int, totalreads)
+    seqsum.HasModData = falses(totalreads)
+
     
     n = 0
     modline = parse_mod_line(readline(io))
@@ -421,18 +423,28 @@ function streamblockreadsconfig(file, config::ModConfig{N}=config_ami(); seqsumf
         (readstats.chrom == ".") && continue ## if read is ummaped then skip
 
         n += 1
-        try
-            seqsum.fw_soft_clipped_start[n] = readstats.fw_soft_clipped_start
-            seqsum.fw_soft_clipped_end[n] = readstats.fw_soft_clipped_end
-        catch
-            @show readstats
-            @show modline
-            @show n
-            @show totalreads
-            error("")
+        ### check that read in mods matches with next read_id
+        ### this can happen if seqsum.read_id[n] has no modifications
+        ### conduct forward sweep
+        while (n <= totalreads) && (readstats.read_id != seqsum.read_id[n])
+            n += 1
+            next!(p)
+        end
+        if n > totalreads
+            display("================================")
+            display(readstats)
+            display(n)
+            display("next line:")
+            display(modline)
+            # display(seqsum[(n-1):(n+1), :])
+            error("Cannot match $(readstats.read_id)")
         end
 
-        
+        seqsum.HasModData[n] = true
+        seqsum.fw_soft_clipped_start[n] = readstats.fw_soft_clipped_start
+        seqsum.fw_soft_clipped_end[n] = readstats.fw_soft_clipped_end
+            
+        ### calculate mod stats
         ### loop over mods and build mod stats vector
         for i = 1:N
             # @show modstats(mods[i], totalmods[i])
@@ -444,18 +456,10 @@ function streamblockreadsconfig(file, config::ModConfig{N}=config_ami(); seqsumf
             end
         end
         
-                      
-        try
-            @assert readstats.read_id == seqsum.read_id[n]
-        catch
-            display("================================")
-             display(readstats)
-            display(n)
-            display(seqsum[(n-1):(n+1), :])
-            error("out of order")
-                
-        end
-        
+        # (length(totalmods) == 3) && all(x -> totalmods[x] > 100, keys(totalmods)) && return mods
+        ### stats of reads to annotate onto the dataframe
+               
+        next!(p)
         next!(p)
         
         (n == nr) && break
@@ -465,7 +469,7 @@ function streamblockreadsconfig(file, config::ModConfig{N}=config_ami(); seqsumf
     @time "Building Mod Stat DF" mdf = modstatdataframe_config(readmodstats, config)
     @time "Joining onto seq sum" seqsum_mdf = joinmodstat(seqsum, mdf)
     if seqsumfile != ""
-        nsfile = replace(seqsumfile, ".txt.gz" => ".modstats.txt.gz")
+        nsfile = replace(seqsumfile, ".tsv.gz" => ".modstats.tsv.gz")
         println("Writing $nsfile...")
         @time "Writing stat file" CSV.write(nsfile, seqsum_mdf, compress=true)
     end
