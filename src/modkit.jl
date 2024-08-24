@@ -326,13 +326,13 @@ function modstatdataframe_config(stats, config::ModConfig{N}) where {N}
 end
 
 function joinmodstat(seqsum, mdf)
-
+    ssfields = setdiff(names(seqsum), names(mdf))
     if size(seqsum, 1) == size(mdf, 1)
-        [seqsum[!, Not(names(mdf))] mdf]
+        [seqsum[!, ssfields] mdf]
     else
         seqsum.Index = 1:size(seqsum, 1)
         mdf.Index = 1:size(mdf, 1)
-        leftjoin(seqsum[!, Not(names(mdf))], mdf, on=:Index)
+        leftjoin(seqsum[!, ssfields], mdf, on=:Index)
     end
 end
 
