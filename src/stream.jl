@@ -535,8 +535,21 @@ function streamposfrags_compress(bamreader, io, iio; T=Int32, filtfun=validfrag,
         mods = methcalls_cg_gc(record)
         if isempty(modifications)
             modifications = mods.mods
-        else
-            @assert modifications == mods.mods
+        # elseif length(modifications) < length(mods.mods)
+        #     for m in modifications
+        #         @assert m ∈ mods.mods
+        #     end
+        # else
+        #     for m in mods.mods
+        #         @assert m ∈ modifications
+        #     end
+            try
+                @assert modifications == mods.mods
+            catch
+                display(modifications)
+                display(mods.mods)
+                error("")
+            end
         end
 
 
@@ -1144,7 +1157,7 @@ function methcalls_cg_gc(record)
     for (m, run) in zip(mods, runs)
         (m == "h") && continue
         k += 1
-        @show m, k
+        
         bp = rcdict[m]
         # @show m, last(m), bp
         
