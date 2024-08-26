@@ -1164,14 +1164,14 @@ function methcalls_cg_gc(record)
         if m == "a"
             push!(pos, Int[])
             push!(mls, UInt8[])
-            push!(kmers, DNAKmer{3}[])
+            # push!(kmers, DNAKmer{3}[])
         elseif m == "m"
             push!(pos, Int[])
             push!(mls, UInt8[])
-            push!(kmers, DNAKmer{3}[])
+            # push!(kmers, DNAKmer{3}[])
             push!(pos, Int[])
             push!(mls, UInt8[])
-            push!(kmers, DNAKmer{3}[])
+            # push!(kmers, DNAKmer{3}[])
         end
         
         for r in run
@@ -1219,5 +1219,5 @@ function methcalls_cg_gc(record)
         push!(mods, "i")
     end
 
-    (;mods, runs, base_indexes, pos, mls, kmers)
+    (;mods, runs, base_indexes, pos, mls)
 end
