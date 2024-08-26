@@ -1232,6 +1232,7 @@ function methcalls_cg_gc(record)
         @assert mods[end] == "m"
         push!(mods, "i")
     end
+    mods = setdiff(mods, ["h"])
 
     (;mods, runs, base_indexes, pos, mls)
 end
