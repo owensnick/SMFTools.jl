@@ -1,23 +1,70 @@
 
-function stream_nanopolish_meth(tsvfile, outfile; T=Int32, verbose=true)
+function stream_nanopolish_meth(tsvfile, outfile; T=Int32, verbose=true, compress=1)
     verbose && println("[SMF]\tStreaming nanopolish file: $tsvfile to $outfile")
 
     starttime = time()
-
+    indexfile = string(outfile, ".index")
     io = open(outfile, "w")
+    rio = open(indexfile, "w")
     println(io, "#bottom_header")
 
     pos_buff = 0
     write(io, pos_buff)
 
     iio = open(tsvfile) |> GzipDecompressorStream
+    
 
-    chroms, totalreads, totalpos = streamfrags_io(iio, io, T=T)
-    verbose && println("[SMF]\tStreamed ", sum(totalreads), " fragments from ", length(chroms), " chromosomes")
+    sr = streamfrags_io_compress(iio, io, rio, T=T, filelength=filesize(tsvfile), level=compress)
+    verbose && println("[SMF]\tStreamed ", sum(sr.totalreads), " fragments from ", length(sr.chroms), " chromosomes")
+
+    close(rio)
+
+    # verbose && println("[SMF]\tWriting header.")
+    read_table_pos = position(io)
+    
+    rio = open(indexfile)
+    @time "[SMF]\tCopying header" write(io, read(rio))
+    close(rio)
+    rm(indexfile)
 
     verbose && println("[SMF]\tWriting header.")
 
-    pos_buff = position(io)
+    header_pos = position(io)
+
+    # header 
+
+    # println(io, "#methylation\t", modification)
+    if compress > 0
+        println(io, "#compressed\t", compress)
+    end
+    @show sr.modifications
+    println(io, "#modifications\t",   join(sr.modifications, ","))
+    println(io, "#totalmodifications\t",   sum(sr.totalpos))
+    println(io, "#totalreads\t", sum(sr.totalreads))
+    println(io, "#posmatrixfields\t", 2)
+    println(io, "#posmatrixlabels\t", "postion, methprob")
+    println(io, "#posmatrixencoding\t", T)
+    println(io, "#readindexfields\t", 3 + length(sr.modifications)*2)
+    println(io, "#readindexlabels\t", "strand_chrom_enc, leftposition, rightposition, $(length(sr.modifications))x(modstartindex, modstopindex)")
+    println(io, "#readindexposition\t", read_table_pos)
+    println(io, "#readindexencoding\t", Int)
+
+    
+    cumreads = cumsum(sr.totalreads)
+    readind  = map((s, e) -> s:e, [0 ; cumreads[1:end-1]] .+ 1, cumreads)
+    println(io, "#index\t", join(zip(sr.chroms, readind), ","))
+    seekstart(io)
+    # println(io, "#bottom_header")
+    write(io, 0)
+    write(io, header_pos)
+    # write(io, pos_buff)
+
+    close(io)
+    verbose && println("[SMF]\tcomplete in ", time() - starttime, " seconds")
+
+    ############################################
+
+    # pos_buff = position(io)
 
     
     ### fields
@@ -27,24 +74,24 @@ function stream_nanopolish_meth(tsvfile, outfile; T=Int32, verbose=true)
     # 4. read_index
     # 5. position
     # 6. meth prob
-    labels = ["read_index", "position", "meth_prob"]
-    println(io, "#paired\t",   false)
-    println(io, "#numregions\t",   length(chroms))
-    println(io, "#totalfrags\t", sum(totalpos))
-    println(io, "#totalecfrags\t", [sum(totalreads)])
-    println(io, "#numfields\t", 6)
-    println(io, "#fields\t[", join(["start" ; "stop" ; "strand_chrom_enc"; labels], ", "), "]")
-    println(io, "#dataencoding\t", T)
-    frags    = totalpos
-    cumfrags = cumsum(frags)
-    fragind  = map((s, e) -> s:e, [0 ; cumfrags[1:end-1]] .+ 1, cumfrags)
-    println(io, "#index\t", join(zip(chroms, fragind), ","))
-    seekstart(io)
-    println(io, "#bottom_header")
-    write(io, pos_buff)
+    # labels = ["read_index", "position", "meth_prob"]
+    # println(io, "#paired\t",   false)
+    # println(io, "#numregions\t",   length(chroms))
+    # println(io, "#totalfrags\t", sum(totalpos))
+    # println(io, "#totalecfrags\t", [sum(totalreads)])
+    # println(io, "#numfields\t", 6)
+    # println(io, "#fields\t[", join(["start" ; "stop" ; "strand_chrom_enc"; labels], ", "), "]")
+    # println(io, "#dataencoding\t", T)
+    # frags    = totalpos
+    # cumfrags = cumsum(frags)
+    # fragind  = map((s, e) -> s:e, [0 ; cumfrags[1:end-1]] .+ 1, cumfrags)
+    # println(io, "#index\t", join(zip(chroms, fragind), ","))
+    # seekstart(io)
+    # println(io, "#bottom_header")
+    # write(io, pos_buff)
 
-    close(io)
-    verbose && println("[SMF]\tcomplete in ", time() - starttime, " seconds")
+    # close(io)
+    # verbose && println("[SMF]\tcomplete in ", time() - starttime, " seconds")
 
 end
 
@@ -485,7 +532,7 @@ function streamposfrags_compress(bamreader, io, iio; T=Int32, filtfun=validfrag,
         chromind = chromindex[chrom]
         
         ### get methylation probabilities
-        mods = methcalls(record)
+        mods = methcalls_cg_gc(record)
         if isempty(modifications)
             modifications = mods.mods
         else
@@ -577,7 +624,7 @@ function addgc!(pos, score, start, seq, numgc, lr)
         ind = findnext("GC", seq, currentmatch + 2)
         currentmatch = first(ind)
         push!(pos, start + currentmatch - 5)
-        push!(pos, start + currentmatch - 5, lr)
+        push!(score, lr)
     end
 end
 
@@ -593,7 +640,7 @@ function streamfrags_io(file, io; T=Int32, filtfun=validfrag, mlt = 0.0)
 
     ### get chromosome names from the bam header
 
-    iio = open(tsvfile) |> GzipDecompressorStream
+    # iio = open(tsvfile) |> GzipDecompressorStream
     filelength = filesize(file)
 
     chroms = String[]
@@ -605,8 +652,7 @@ function streamfrags_io(file, io; T=Int32, filtfun=validfrag, mlt = 0.0)
     totalreads = Dict{String, Int}()
     totalpos = Dict{String, Int}()
 
-
-
+   
     
     p = Progress(filelength, 1, "Streaming Meth file: ", 50)
 
@@ -682,6 +728,134 @@ function streamfrags_io(file, io; T=Int32, filtfun=validfrag, mlt = 0.0)
 
 
     chroms, [totalreads[c] for c in chroms], [totalpos[c] for c in chroms]
+end
+
+
+"""
+    streamfrags_io(file, io; T=Int32, filtfun=validfrag, mlt = 0.0)
+    
+    Function to stream a a methylation TSV file reader `iio` and write to io stream `io`.
+
+    Assumes nanopolish methylation TSV file format.
+
+"""
+function streamfrags_io_compress(iio, io, rio; T=Int32, filtfun=validfrag, mlt = 0.0, level=1, filelength=0)
+
+    ### get chromosome names from the bam header
+
+     ### read index
+    # 1. strand_chrom_enc
+    # 2. leftposition
+    # 3. rightposition
+    # 4. mod_start_index
+    # 5. mod_stop_index
+
+
+
+    chroms = String[]
+    chromindex = Dict{String, Int}()
+
+    totalreads = Dict{String, Int}()
+    totalpos = Dict{String, Int}()
+
+    if filelength > 0
+        p = Progress(filelength, 1, "Streaming Meth file: ", 50)
+    end
+
+    currentchrom = ""
+    ci = 1
+    
+    readindex = 0
+    readid = ""
+    readstrand = ""
+    readchrom = ""
+    readpos = Int[]
+    readscore = Int[]
+
+    modid = 1
+    for line in eachline(iio)
+        occursin(r"^chromosome", line) && continue
+        res = parseline(line)
+
+        if res.chrom != currentchrom
+            push!(chroms, res.chrom)
+            chromindex[res.chrom] = ci
+            @show res.chrom, ci
+            currentchrom = res.chrom
+            ci += 1 
+            totalreads[res.chrom] = 0
+            totalpos[res.chrom] = 0
+        end
+        !valid_gc_call(res.seq) && continue
+
+        if readid != res.readid
+            if readid != ""
+                readstart = first(readpos)
+                readstop = last(readpos)
+
+           
+
+                write(rio, GenomeFragments.set_strand_chrom_enc(readstrand, chromindex[readchrom], Int))          ### chrom strand enc
+                write(rio, readstart)
+                write(rio, readstop)
+                write(rio, modid)
+                # try
+                #     @show readscore, readpos
+                #     ind = readscore .> mlt
+                #     @show ind
+                #     M = T.([readpos[ind]' ; readscore[ind]'])
+                #     C = compress(M, level=level)
+    
+                # catch
+                #     error("")
+                # end
+                ind = readscore .> mlt
+                M = T.([readpos[ind]' ; readscore[ind]'])
+                C = compress(M, level=level)
+
+                w = write(io, C)
+                modid += w
+                write(rio, modid -1)
+                totalpos[readchrom] += w
+
+                totalreads[readchrom] += 1
+                (filelength > 0) && update!(p, position(iio))
+            end
+            readid = res.readid
+            readstrand = res.strand
+            readchrom = res.chrom
+            readpos = Int[]
+            readscore = Int[]
+            readindex += 1
+        end
+        addgc!(readpos, readscore, res.start, res.seq, res.nummot, res.lr)
+
+    end
+
+    if readid != ""
+        readstart = first(readpos)
+        readstop = last(readpos)
+       
+        write(rio, GenomeFragments.set_strand_chrom_enc(readstrand, chromindex[readchrom], Int))          ### chrom strand enc
+        write(rio, readstart)
+        write(rio, readstop)
+        write(rio, modid)
+
+        ind = readscore .> mlt
+        M = T.([readpos[ind]' ; readpos[ind]'])
+        C = compress(M, level=level)
+
+        w = write(io, C)
+        modid += w
+        write(rio, modid -1)
+        totalpos[readchrom] += w
+
+        totalreads[readchrom] += 1
+    end
+
+    (filelength > 0) && update!(p, filelength)
+
+    (chroms=chroms,  totalreads=[totalreads[c] for c in chroms], totalpos=[totalpos[c] for c in chroms], modifications=["G5mC"])
 end
 
 function get_ml_data(record)
@@ -900,4 +1074,150 @@ function methcalls(record)
     end
 
     (;mods, runs, base_indexes, pos, mls)
+end
+
+
+function methcalls_cg_gc(record)
+    
+    # meths = String[]
+    mm = SMFTools.get_mm_data(record)
+    # fields = Set{String}()
+    
+    
+    #### obtain runs of modifications
+    # modruns = Dict{String, Vector{Int}}()
+    mods = String[]
+    runs = Vector{Int}[]
+    currentmod = ""
+    
+    for block in eachsplit(mm, ";", keepempty=false)
+        firstfield = true
+        readingh = false
+        for f in eachsplit(block, ",")
+            if firstfield
+                
+                if f[1] == 'A'
+                   @assert f[2] == '+'
+                   @assert f[3] == 'a'
+                   currentmod = "a"
+                elseif f[1] == 'C'
+                    @assert f[2] == '+'
+                    if f[3] == 'h'
+                        currentmod = "h"
+                        readingh = true
+                    elseif f[3] == 'm'
+                        currentmod = "m"
+                    else
+                        error("Modification $f not recognised")
+                    end
+                else
+                    error("Modification $f not recognised")
+                end
+                firstfield = false
+                if !readingh
+                    push!(runs, Int[])
+                    push!(mods, currentmod)
+                end
+            else
+                !readingh && push!(runs[end], Parsers.parse(Int, f))
+            end
+        end
+    end
+    
+    
+    #### align runs with modification calls
+    
+    ml = SMFTools.get_ml_data(record)
+    base_indexes = BitArray{1}[]
+    seq = BAM.sequence(record)
+    aln = BAM.alignment(record)
+    rcdict = Dict("a" => (DNA_A, DNA_T), "m" => (DNA_C, DNA_G))
+    mli = 1
+    
+    pos = Vector{Int}[]
+    mls = Vector{UInt8}[]
+    # kmers = Vector{DNAKmer{3}}[]
+    
+    # fA = Int[]
+    k = 0
+    split_m = false
+    for (m, run) in zip(mods, runs)
+        (m == "h") && continue
+        k += 1
+        @show m, k
+        bp = rcdict[m]
+        # @show m, last(m), bp
+        
+        ind = BAM.ispositivestrand(record) ? (seq .== bp[1]) : (seq .== bp[2])
+        push!(base_indexes, ind)
+        f_ind = findall(ind)
+        
+        ml_B = ml[mli .+ (1:length(run)) .- 1]        
+        mli += length(run)
+        
+        if !BAM.ispositivestrand(record)
+            reverse!(ml_B)
+        end
+        mlib = 1
+        fi = 0
+
+        if m == "a"
+            push!(pos, Int[])
+            push!(mls, UInt8[])
+            push!(kmers, DNAKmer{3}[])
+        elseif m == "m"
+            push!(pos, Int[])
+            push!(mls, UInt8[])
+            push!(kmers, DNAKmer{3}[])
+            push!(pos, Int[])
+            push!(mls, UInt8[])
+            push!(kmers, DNAKmer{3}[])
+        end
+        
+        for r in run
+            fi += (r + 1)
+            p, op = seq2ref(aln, f_ind[fi])
+            
+            
+            if op == OP_MATCH
+                if m == "a"
+                    push!(pos[k], p)
+                    push!(mls[k], ml_B[mlib])
+                    # kmer = DNAKmer{3}(seq[f_ind[fi] .+ (-1:1)])
+                    # push!(kmers[k], kmer)
+                elseif m == "m"
+                    split_m = true
+                    class = classify_m_mod(seq, f_ind[fi])
+                    
+                    if class == :gc
+                        kp = k + 1
+                        push!(pos[kp], p)
+                        push!(mls[kp], ml_B[mlib])
+                        # kmer = DNAKmer{3}(seq[f_ind[fi] .+ (-1:1)])
+                        # push!(kmers[kp], kmer)
+                    elseif class == :cg
+                        kp = k
+                        push!(pos[kp], p)
+                        push!(mls[kp], ml_B[mlib])
+                        # kmer = DNAKmer{3}(seq[f_ind[fi] .+ (-1:1)])
+                        # push!(kmers[kp], kmer)
+                    end
+                    
+                end
+                # push!(fA, mlib)
+            end
+            mlib += 1
+        end
+        if m == "m"
+            k += 1
+        end
+        # @show mli
+    end
+
+    if split_m
+        @assert mods[end] == "m"
+        push!(mods, "i")
+    end
+
+    (;mods, runs, base_indexes, pos, mls, kmers)
 end
