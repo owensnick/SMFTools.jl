@@ -1236,7 +1236,7 @@ function methcalls_cg_gc(record)
 end
 
 function classify_m_mod(seq, i)
-    if i == 1
+    if (i == 1) || (i == length(seq))
         return :nomod
     elseif seq[i-1] == DNA_G
 
