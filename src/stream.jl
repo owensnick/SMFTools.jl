@@ -1256,10 +1256,10 @@ function classify_m_mod(seq, i, pos)
             if seq[i-1] == DNA_C
                 return :ambig
             else
-                return :cg
+                return :gc
             end
         elseif seq[i-1] == DNA_C
-            return :gc
+            return :cg
         end
             
     end
