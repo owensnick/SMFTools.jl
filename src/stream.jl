@@ -1221,3 +1221,20 @@ function methcalls_cg_gc(record)
 
     (;mods, runs, base_indexes, pos, mls)
 end
+
+function classify_m_mod(seq, i)
+    if i == 1
+        return :nomod
+    elseif seq[i-1] == DNA_G
+
+        if seq[i+1] == DNA_G
+            return :ambig
+        else
+            return :gc
+        end
+    elseif seq[i+1] == DNA_G
+        return :cg
+    else
+        return :nomod
+    end
+end
