@@ -1105,7 +1105,6 @@ function methcalls_cg_gc(record)
     
     for block in eachsplit(mm, ";", keepempty=false)
         firstfield = true
-        readingh = false
         for f in eachsplit(block, ",")
             if firstfield
                 
@@ -1117,7 +1116,7 @@ function methcalls_cg_gc(record)
                     @assert f[2] == '+'
                     if f[3] == 'h'
                         currentmod = "h"
-                        readingh = true
+                        
                     elseif f[3] == 'm'
                         currentmod = "m"
                     else
@@ -1127,12 +1126,11 @@ function methcalls_cg_gc(record)
                     error("Modification $f not recognised")
                 end
                 firstfield = false
-                if !readingh
-                    push!(runs, Int[])
-                    push!(mods, currentmod)
-                end
+                push!(runs, Int[])
+                push!(mods, currentmod)
+
             else
-                !readingh && push!(runs[end], Parsers.parse(Int, f))
+               push!(runs[end], Parsers.parse(Int, f))
             end
         end
     end
@@ -1144,7 +1142,7 @@ function methcalls_cg_gc(record)
     base_indexes = BitArray{1}[]
     seq = BAM.sequence(record)
     aln = BAM.alignment(record)
-    rcdict = Dict("a" => (DNA_A, DNA_T), "m" => (DNA_C, DNA_G))
+    rcdict = Dict("a" => (DNA_A, DNA_T), "m" => (DNA_C, DNA_G), "h" => (DNA_C, DNA_G))
     mli = 1
     
     pos = Vector{Int}[]
@@ -1155,7 +1153,10 @@ function methcalls_cg_gc(record)
     k = 0
     split_m = false
     for (m, run) in zip(mods, runs)
-        (m == "h") && continue
+        if m == "h"
+            mli += length(run)
+            continue
+        end
         k += 1
         
         bp = rcdict[m]
@@ -1200,7 +1201,7 @@ function methcalls_cg_gc(record)
                     # push!(kmers[k], kmer)
                 elseif m == "m"
                     split_m = true
-                    class = classify_m_mod(seq, f_ind[fi])
+                    class = classify_m_mod(seq, f_ind[fi], BAM.ispositivestrand(record))
                     
                     if class == :gc
                         kp = k + 1
@@ -1234,20 +1235,45 @@ function methcalls_cg_gc(record)
 
     (;mods, runs, base_indexes, pos, mls)
 end
-
-function classify_m_mod(seq, i)
-    if (i == 1) || (i == length(seq))
-        return :nomod
-    elseif seq[i-1] == DNA_G
-
-        if seq[i+1] == DNA_G
-            return :ambig
-        else
-            return :gc
-        end
-    elseif seq[i+1] == DNA_G
-        return :cg
-    else
+function classify_m_mod(seq, i, pos)
+    if (i == 1) || (i == length(seq)) ### todo: there are mods at first and last position that can be valid
         return :nomod
     end
+
+    if pos
+        if seq[i-1] == DNA_G
+            if seq[i+1] == DNA_G
+                return :ambig
+            else
+                return :gc
+            end
+        elseif seq[i+1] == DNA_G
+            return :cg
+        end
+    else
+        if seq[i+1] == DNA_C
+            if seq[i-1] == DNA_C
+                return :ambig
+            else
+                return :cg
+            end
+        elseif seq[i-1] == DNA_C
+            return :gc
+        end
+            
+    end
+
+    return :nomod
 end
+
+
+# P: CATCGTTGCACA GCG TC
+# N: GTAGCAACGTGT CGC AG
+
+# P: GCG A
+# P: GCK i
+# P: KCG m
+
+# N: 
+    
+# end
