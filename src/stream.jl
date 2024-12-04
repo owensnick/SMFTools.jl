@@ -174,6 +174,10 @@ function validfrag(record, mlt="ML", mlt_vold = "Ml")
     
 end
 
+function qualvalidread(record, mq=60)
+    (BAM.mappingquality(record) ≥ mq) && validfrag(record)
+end
+
 """
     totalreadsindex(reader)
 
@@ -476,7 +480,7 @@ end
 
 
 
-function streamposfrags_compress(bamreader, io, iio; T=Int32, filtfun=validfrag, mlt = 0.0, level=1)
+function streamposfrags_compress(bamreader, io, iio; T=Int32, filtfun=qualvalidread, mlt = 0.0, level=1)
 
     ### get chromosome names from the bam header
     chroms = [v["SN"] for v in findall(BAM.header(bamreader), "SQ")]
