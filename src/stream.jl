@@ -294,16 +294,14 @@ function streambam_smf_pos(bamfile, outfile, modifiction="";  T=Int32, verbose=t
     
 
     if isfile(string(bamfile, ".bai"))
-        reader = open(BAM.Reader, bamfile, index=string(bamfile, ".bai"))
-        totalreads = totalreadsindex(reader)
-        verbose && println("[SMF]\tTotal reads in BAM file: ", totalreads)
+       
     else
         reader = open(BAM.Reader, bamfile)
         totalreads = -1
     end
     # chroms, totalreads, totalpos 
     if compress > 0
-        sr = streamposfrags_compress(reader, io, iio; T=T, mlt = mlt, level=compress)
+        sr = streamposfrags_compress(bamfile, io, iio; T=T, mlt = mlt, level=compress)
     else
         sr = streamposfrags(reader, io, iio, T=T, mlt=mlt)
     end
@@ -478,9 +476,32 @@ function streamposfrags(bamreader, io, iio; T=Int32, filtfun=validfrag, mlt = 0.
     (; chroms, totalreads, totalpos)
 end
 
+function getmods(bamfile,  filtfun=qualvalidread, totalreads = 1000)
 
+    modifications = String[]
+    reader = open(BAM.Reader, bamfile)
 
-function streamposfrags_compress(bamreader, io, iio; T=Int32, filtfun=qualvalidread, mlt = 0.0, level=1)
+    r = 0
+    for record in reader
+        !filtfun(record) && continue
+        # !validfrag(record) && continue
+        mods = SMFTools.methcalls_cg_gc(record)
+        if length(mods.mods) > length(modifications)
+            modifications = mods.mods
+
+        end
+        r += 1
+        (r == totalreads) && break
+    end
+
+    close(reader)
+    modifications
+end
+
+function streamposfrags_compress(bamfile, io, iio; T=Int32, filtfun=qualvalidread, mlt = 0.0, level=1)
+
+    bamreader = open(BAM.Reader, bamfile, index=string(bamfile, ".bai"))
+  
 
     ### get chromosome names from the bam header
     chroms = [v["SN"] for v in findall(BAM.header(bamreader), "SQ")]
@@ -515,8 +536,9 @@ function streamposfrags_compress(bamreader, io, iio; T=Int32, filtfun=qualvalidr
     else
         p = nothing
     end
+    verbose && println("[SMF]\tTotal reads in BAM file: ", total_reads_in_file)
 
-    modifications = String[]
+    modifications = getmods(bamfile)
 
     for record in bamreader
         !isnothing(p) && next!(p)
