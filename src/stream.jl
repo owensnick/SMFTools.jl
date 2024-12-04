@@ -498,7 +498,7 @@ function getmods(bamfile,  filtfun=qualvalidread, totalreads = 1000)
     modifications
 end
 
-function streamposfrags_compress(bamfile, io, iio; T=Int32, filtfun=qualvalidread, mlt = 0.0, level=1)
+function streamposfrags_compress(bamfile, io, iio; T=Int32, filtfun=qualvalidread, mlt = 0.0, level=1, verbose=true)
 
     bamreader = open(BAM.Reader, bamfile, index=string(bamfile, ".bai"))
   
